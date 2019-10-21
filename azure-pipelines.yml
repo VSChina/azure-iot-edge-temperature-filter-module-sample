@@ -19,8 +19,8 @@ steps:
   displayName: 'Azure IoT Edge - Push module images'
   inputs:
     action: 'Push module images'
-    azureSubscriptionEndpoint: 'VSChina IoT DevINT with TTL = 7 Days (faab228d-df7a-4086-991e-e81c4659d41a)'
-    azureContainerRegistry: '{"loginServer":"iotedgedevopsacrtest.azurecr.io", "id" : "/subscriptions/faab228d-df7a-4086-991e-e81c4659d41a/resourceGroups/iotedge-devops-deepdiv/providers/Microsoft.ContainerRegistry/registries/iotedgedevopsacrtest"}'
+    azureSubscriptionEndpoint: '$(ServiceConnectionId)'
+    azureContainerRegistry: '$(AcrName)'
     fillRegistryCredential: false
 
 - task: AzureIoTEdge@2
