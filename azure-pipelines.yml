@@ -1,15 +1,17 @@
 trigger:
-- master
+- multistage-ci
 
-pool:
-  name: Azure Pipelines
-  vmImage: ubuntu-16.04
+# Do not run against PR
+pr: none
 
 stages:
   - stage: Build
-    displayName: Build and push to test '$(FullAcrId)'
+    displayName: Build and push to test ACR
     jobs:
     - job: Build
+      pool:
+        name: Azure Pipelines
+        vmImage: ubuntu-16.04
       steps:
       - task: DotNetCoreCLI@2
         displayName: 'dotnet test'
@@ -24,8 +26,8 @@ stages:
         displayName: 'Azure IoT Edge - Push module images'
         inputs:
           action: 'Push module images'
-          azureSubscriptionEndpoint: '$(ServiceConnectionId)'
-          azureContainerRegistry: '$(FullAcrId)'
+          azureSubscriptionEndpoint: '$(SERVICE_CONNECTION_ID)'
+          azureContainerRegistry: '$(FULL_ACR_ID)'
           fillRegistryCredential: false
 
       - task: AzureIoTEdge@2
@@ -46,3 +48,47 @@ stages:
         displayName: 'Publish Artifact: drop'
         inputs:
           PathtoPublish: '$(System.DefaultWorkingDirectory)/drop'
+  
+  - stage: Release
+    displayName: Test and promote to prod ACR
+    jobs:
+    - job: Release
+      pool:
+        name: Azure Pipelines
+        vmImage: ubuntu-16.04
+      steps:
+      - task: DownloadBuildArtifacts@0
+        inputs:
+          buildType: 'current'
+          downloadType: 'single'
+          artifactName: 'drop'
+          downloadPath: '$(Build.ArtifactStagingDirectory)'
+      - task: AzureIoTEdge@2
+        displayName: 'Azure IoT Edge - Generate deployment manifest'
+        inputs:
+          action: 'Generate deployment manifest'
+          templateFilePath: '$(Build.ArtifactStagingDirectory)/drop/deployment.json'
+          deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/config/deployment.json'
+      - task: AzureIoTEdge@2
+        displayName: 'Azure IoT Edge - Deploy to IoT Edge devices'
+        inputs:
+          action: 'Deploy to IoT Edge devices'
+          deploymentFilePath: '$(System.DefaultWorkingDirectory)/config/deployment.json'
+          azureSubscription: '$(SERVICE_CONNECTION_ID)'
+          iothubname: '$(IOTHUB_NAME)'
+          deploymentid: '$(TEST_DEPLOYMENT_ID)'
+          deviceOption: 'Multiple Devices'
+          targetcondition: 'tags.environment=''$(TEST_ENVIRONMENT)'''
+      - task: AzureCLI@1
+        displayName: 'Azure CLI: Run smoke test'
+        inputs:
+          azureSubscription: '$(SERVICE_CONNECTION_ID)'
+          scriptPath: '$(Build.ArtifactStagingDirectory)/drop/edgeSmokeTest.sh'
+          arguments: '$(TEST_IOTHUB) $(TEST_ENVIRONMENT) $(TEST_DEPLOYMENT_ID)'
+      - task: AzureCLI@1
+        displayName: 'Azure CLI: Promote image to production'
+        inputs:
+          azureSubscription: '$(SERVICE_CONNECTION_ID)'
+          scriptPath: '$(Build.ArtifactStagingDirectory)/drop/moduleAcrPromotion.sh'
+          arguments: '$(TEST_ACR_ADDRESS) $(PROD_ACR_NAME) temperaturefiltermodule:0.0.$(Build.BuildId)-amd64'
+          workingDirectory: '$(TEST_ACR_ADDRESS) $(PROD_ACR_NAME) temperaturefiltermodule:0.0.$(Build.BuildId)-amd64'
