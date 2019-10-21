@@ -1,6 +1,9 @@
 trigger:
 - master
 
+# Do not run against PR
+pr: none
+
 pool:
   name: Azure Pipelines
   vmImage: ubuntu-16.04
