@@ -5,39 +5,44 @@ pool:
   name: Azure Pipelines
   vmImage: ubuntu-16.04
 
-steps:
-- task: DotNetCoreCLI@2
-  displayName: 'dotnet test'
-  inputs:
-    command: test
-    projects: 'tests/**/*.csproj'
+stages:
+  - stage: Build
+    displayName: Build and push to test '$(FullAcrId)'
+    jobs:
+    - job: Build
+      steps:
+      - task: DotNetCoreCLI@2
+        displayName: 'dotnet test'
+        inputs:
+          command: test
+          projects: 'tests/**/*.csproj'
 
-- task: AzureIoTEdge@2
-  displayName: 'Azure IoT Edge - Build module images'
+      - task: AzureIoTEdge@2
+        displayName: 'Azure IoT Edge - Build module images'
 
-- task: AzureIoTEdge@2
-  displayName: 'Azure IoT Edge - Push module images'
-  inputs:
-    action: 'Push module images'
-    azureSubscriptionEndpoint: '$(ServiceConnectionId)'
-    azureContainerRegistry: '$(FullAcrId)'
-    fillRegistryCredential: false
+      - task: AzureIoTEdge@2
+        displayName: 'Azure IoT Edge - Push module images'
+        inputs:
+          action: 'Push module images'
+          azureSubscriptionEndpoint: '$(ServiceConnectionId)'
+          azureContainerRegistry: '$(FullAcrId)'
+          fillRegistryCredential: false
 
-- task: AzureIoTEdge@2
-  displayName: 'Azure IoT Edge - Generate deployment manifest'
-  inputs:
-    action: 'Generate deployment manifest'
-    deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/drop/deployment.json'
+      - task: AzureIoTEdge@2
+        displayName: 'Azure IoT Edge - Generate deployment manifest'
+        inputs:
+          action: 'Generate deployment manifest'
+          deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/drop/deployment.json'
 
-- task: CopyFiles@2
-  displayName: 'Copy Files to drop folder'
-  inputs:
-    Contents: |
-     edgeSmokeTest.sh
-     moduleAcrPromotion.sh
-    TargetFolder: '$(System.DefaultWorkingDirectory)/drop'
+      - task: CopyFiles@2
+        displayName: 'Copy Files to drop folder'
+        inputs:
+          Contents: |
+            edgeSmokeTest.sh
+            moduleAcrPromotion.sh
+          TargetFolder: '$(System.DefaultWorkingDirectory)/drop'
 
-- task: PublishBuildArtifacts@1
-  displayName: 'Publish Artifact: drop'
-  inputs:
-    PathtoPublish: '$(System.DefaultWorkingDirectory)/drop'
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Artifact: drop'
+        inputs:
+          PathtoPublish: '$(System.DefaultWorkingDirectory)/drop'
