@@ -26,6 +26,12 @@ steps:
     azureContainerRegistry: '$(FullAcrId)'
     fillRegistryCredential: false
 
+- task: AzureIoTEdge@2	
+  displayName: 'Azure IoT Edge - Generate deployment manifest'	
+  inputs:	
+    action: 'Generate deployment manifest'	
+    deploymentManifestOutputPath: '$(System.DefaultWorkingDirectory)/drop/deployment.json'	
+
 - task: CopyFiles@2
   displayName: 'Copy Files to drop folder'
   inputs:
